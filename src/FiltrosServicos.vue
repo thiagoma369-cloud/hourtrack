@@ -87,15 +87,14 @@
 </select>
 
    <!-- filtro por data -->
-  <div class="campo">
-  <label class="label-data">Filtrar por data</label>
-  <input
-    class="input-data"
-    type="date"
-    :value="filtroData"
-    @change="atualizarData($event.target.value)"
+
+   <input
+class="input-data"  
+type="date"
+  :value="filtroData"
+  @input="atualizarData($event.target.value)"
+  placeholder="Filtrar por Data"
   >
-</div>
       
     </div>
 </template>

@@ -317,23 +317,8 @@ select {
   color: #1c1c1c;
 }
 
-.input-data {
-   background: linear-gradient(135deg, #e8f5e9, #ffffff);
-  color:#1c1c1c;
-}
 
-.campo {
-  display: flex;
-  flex-direction: column;
-}
-
-.label-data {
-  font-size: 11px;
-  color: #777;
-  margin-bottom: 2px;
-  margin-left: 2px;
-}
-
+/* botão principal */
 /* estilo base de todos botões */
 
 button{
@@ -507,6 +492,4 @@ justify-content: space-around;
   margin-top: 6px;
   justify-content: center;
 }
-
-
 </style>

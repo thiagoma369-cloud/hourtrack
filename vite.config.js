@@ -9,6 +9,10 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
 
+      devOptions: {
+        enabled: true
+      },
+
       manifest: {
         name: 'HourTrack',
         short_name: 'HourTrack',
@@ -18,6 +22,7 @@ export default defineConfig({
         background_color: '#ffffff',
 
         display: 'standalone',
+        start_url: "/",
 
         icons: [
           {
@@ -32,7 +37,6 @@ export default defineConfig({
           }
         ]
       }
-
     })
 
   ]

@@ -74,7 +74,7 @@ export default {
   <div class="formulario">
 
     <!-- Data do serviço -->
-    <input class="input-data" type="date" v-model="data">
+    <input type="date" v-model="data">
 
     <!-- Nome da máquina utilizada -->
     <input type="text" placeholder="Nome da Máquina" v-model.trim="maquina">

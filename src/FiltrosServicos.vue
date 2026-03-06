@@ -88,8 +88,7 @@
 
    <!-- filtro por data -->
 
-   <input
-class="input-data"  
+   <input 
 type="date"
   :value="filtroData"
   @input="atualizarData($event.target.value)"

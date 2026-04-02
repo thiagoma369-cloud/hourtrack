@@ -22,14 +22,14 @@ export default {
         { nome: "Arado" },
         { nome: "Roço" },
         { nome: "Plantio" },
-        { nome: "Derrubada"},
+        { nome: "Derrubada" }
       ],
 
       // Estados de filtro
       filtroTipo: "",
       filtroContratante: "",
       filtroMaquina: "",
-      filtroData:"",
+      filtroData: "",
 
       // Lista principal de serviços registrados
       servicos: []
@@ -55,23 +55,23 @@ export default {
         return total + totalDespesasServico
       }, 0)
     },
-    
+
     // Soma total líquido geral
     totalLiquidoGeral() {
       return this.servicos.reduce((total, servico) => {
         return total + this.calcularTotal(servico)
       }, 0)
     },
-    
+
     // Retorna apenas tipos que já foram usados, para nao repetir
     tiposUnicos() {
       const tipos = this.servicos.map(servico => servico.tipo)
       return [...new Set(tipos)]
     },
-    
+
     // Retorna maquinas no select do filtro sempre que uma nova é adc
     maquinasUnicas() {
-     return [...new Set(this.servicos.map(s => s.maquina))]
+      return [...new Set(this.servicos.map(s => s.maquina))]
     },
 
     // Lista filtrada + ordenada
@@ -81,51 +81,51 @@ export default {
       // Filtro por tipo
       if (this.filtroTipo) {
         lista = lista.filter(servico =>
-        servico.tipo === this.filtroTipo
+          servico.tipo === this.filtroTipo
         )
       }
 
       // Filtro por contratante
       if (this.filtroContratante) {
         lista = lista.filter(servico =>
-        servico.contratante
-        .toLowerCase()
-        .includes(this.filtroContratante.toLowerCase())
+          servico.contratante
+            .toLowerCase()
+            .includes(this.filtroContratante.toLowerCase())
+        )
+      }
+
+      // Filtro por Máquina
+      if (this.filtroMaquina) {
+        lista = lista.filter(servico =>
+          servico.maquina === this.filtroMaquina
+        )
+      }
+
+      // Filtro por data 
+      if (this.filtroData) {
+        lista = lista.filter(servico =>
+          servico.data === this.filtroData
+        )
+      }
+      // Ordenação por data (mais recente primeiro)
+      return lista.sort((a, b) =>
+        new Date(b.data) - new Date(a.data)
       )
-    }
-    
-    // Filtro por Máquina
-    if(this.filtroMaquina) {
-      lista = lista.filter(servico => 
-      servico.maquina === this.filtroMaquina
-    )
-  }
-  
-  // Filtro por data 
-  if(this.filtroData) {
-    lista = lista.filter(servico => 
-    servico.data === this.filtroData
-  )
-}
-   // Ordenação por data (mais recente primeiro)
-    return lista.sort((a, b) =>
-    new Date(b.data) - new Date(a.data)
-   )
-      
+
     },
-    
+
     // Média geral de valor por hora
     mediaValorHora() {
       if (!this.servicos.length) return 0
-      
+
       const totalHoras = this.servicos.reduce((total, servico) => {
         return total + servico.horas
       }, 0)
-      
+
       const totalBruto = this.totalBrutoGeral
 
       return totalHoras
-      ? Number((totalBruto / totalHoras).toFixed(2))
+        ? Number((totalBruto / totalHoras).toFixed(2))
         : 0
     }
 
@@ -144,9 +144,19 @@ export default {
 
   /* MÉTODOS (AÇÕES) */
   methods: {
-
+     //salvar serviço no banco
     adicionarServico(novoServico) {
-      this.servicos.push(novoServico)
+      fetch("http://127.0.0.1:8000/api/servicos", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(novoServico)
+      })
+        .then(res => res.json())
+        .then(data => {
+          this.servicos.push(data)
+        })
     },
 
     // Remove serviço pelo id
@@ -185,11 +195,14 @@ export default {
 
   /* CICLO DE VIDA */
   mounted() {
-    const dadosSalvos = localStorage.getItem("servicos")
-
-    if (dadosSalvos) {
-      this.servicos = JSON.parse(dadosSalvos)
-    }
+    fetch("http://127.0.0.1:8000/api/servicos")
+      .then(res => res.json())
+      .then(data => {
+        this.servicos = data.map(servico => ({
+          ...servico,
+          valorHora: servico.valor_hora
+        }))
+      })
   },
 
   /* OBSERVADORES */
@@ -220,33 +233,20 @@ export default {
     <hr /> <br>
 
 
-    <ResumoFinanceiro :mediaValorHora="mediaValorHora" :servicoMaisLucrativo="servicoMaisLucrativo"
-      :totalBrutoGeral="totalBrutoGeral" :totalLiquidoGeral="totalLiquidoGeral" :totalDespesasMes="totalDespesasMes"
+    <ResumoFinanceiro :mediaValorHora="mediaValorHora" 
+      :totalBrutoGeral="totalBrutoGeral" 
+      :totalLiquidoGeral="totalLiquidoGeral" 
+      :totalDespesasMes="totalDespesasMes"
       :calcularTotal="calcularTotal" />
 
 
-   <FiltrosServicos
-  :filtroTipo="filtroTipo"
-  :filtroContratante="filtroContratante"
-  :filtroMaquina="filtroMaquina"
-  :filtroData="filtroData"
+    <FiltrosServicos :filtroTipo="filtroTipo" :filtroContratante="filtroContratante" :filtroMaquina="filtroMaquina"
+      :filtroData="filtroData" :tiposUnicos="tiposUnicos" :maquinasUnicas="maquinasUnicas"
+      @atualizar-tipo="filtroTipo = $event" @atualizar-contratante="filtroContratante = $event"
+      @atualizar-maquina="filtroMaquina = $event" @atualizar-data="filtroData = $event" />
 
-  :tiposUnicos="tiposUnicos"
-  :maquinasUnicas="maquinasUnicas"
-
-  @atualizar-tipo="filtroTipo = $event"
-  @atualizar-contratante="filtroContratante = $event"
-  @atualizar-maquina="filtroMaquina = $event"
-  @atualizar-data="filtroData = $event"
-/>
-
-    <ListaServicos
-  :servicos="servicosFiltrados"
-  :calcularTotal="calcularTotal"
-  @remover-servico="removerServico"
-  @adicionar-despesa="adicionarDespesa"
-  @remover-despesa="removerDespesa"
-/>
+    <ListaServicos :servicos="servicosFiltrados" :calcularTotal="calcularTotal" @remover-servico="removerServico"
+      @adicionar-despesa="adicionarDespesa" @remover-despesa="removerDespesa" />
 
   </div>
 </template>
@@ -321,30 +321,30 @@ select {
 /* botão principal */
 /* estilo base de todos botões */
 
-button{
-padding:10px 14px;
-font-size:14px;
-border:none;
-border-radius:6px;
-cursor:pointer;
-transition:0.2s;
+button {
+  padding: 10px 14px;
+  font-size: 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.2s;
 }
 
 /* botao principal */
 .adicionar {
-  background:#2e7d32;
-  color:white;
+  background: #2e7d32;
+  color: white;
 }
 
 /* efeito hover do botão */
 .adicionar:hover {
-  background:#1b5e20;
+  background: #1b5e20;
 }
 
 /* restante dos botoes */
 
-.toggle-despesas{
- background: #e5e7eb;
+.toggle-despesas {
+  background: #e5e7eb;
   border: none;
   padding: 6px 10px;
   border-radius: 6px;
@@ -352,8 +352,8 @@ transition:0.2s;
   color: #333
 }
 
-.toggle-despesas:hover{
-background:#d5d5d5;
+.toggle-despesas:hover {
+  background: #d5d5d5;
 }
 
 .remover {
@@ -375,7 +375,7 @@ background:#d5d5d5;
 }
 
 .remover:hover {
-  background:#b71c1c;
+  background: #b71c1c;
 }
 
 
@@ -400,71 +400,73 @@ h2 {
   background-color: #f1f8f4;
 }
 
-.resumo strong{
-  font-size:16px;
-  color:#1b5e20;
+.resumo strong {
+  font-size: 16px;
+  color: #1b5e20;
 }
+
 /* card de serviço (estrutura + visual juntos) */
 .card {
   padding: 16px;
   border: 1px solid #2e7d32;
   border-radius: 8px;
   background-color: white;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-  margin-bottom: 12px; background: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  margin-bottom: 12px;
+  background: white;
   border-radius: 10px;
   padding: 16px;
 
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.despesas{
-  margin-top:10px;
-  padding:10px;
-  background:#fafafa;
-  border-radius:6px;
+.despesas {
+  margin-top: 10px;
+  padding: 10px;
+  background: #fafafa;
+  border-radius: 6px;
 }
 
-@media (max-width:700px){
+@media (max-width:700px) {
 
-.formulario{
-grid-template-columns:1fr;
+  .formulario {
+    grid-template-columns: 1fr;
+  }
+
+  .formulario input[type="date"],
+  .formulario button,
+  .resultado {
+    grid-column: span 1;
+  }
+
+  .filtros {
+    flex-direction: column;
+  }
+
+  .lista {
+    grid-template-columns: 1fr;
+  }
+
 }
 
-.formulario input[type="date"],
-.formulario button,
-.resultado{
-grid-column:span 1;
-}
+.linha-servico-topo {
 
-.filtros{
-flex-direction:column;
-}
-
-.lista {
-  grid-template-columns: 1fr;
-}
-
-}
-
-.linha-servico-topo{
-
- font-size: 18px;
+  font-size: 18px;
   color: #1f2937;
 
 }
 
-.linha-servico-info{
+.linha-servico-info {
 
-font-size:16px;
-color:#555;
-margin-bottom:4px;
-display: flex;
-justify-content: space-around;
+  font-size: 16px;
+  color: #555;
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-around;
 }
 
 
@@ -485,9 +487,9 @@ justify-content: space-around;
   color: #6b7280;
 }
 
-.linha-servico-acoes{
+.linha-servico-acoes {
 
- display: flex;
+  display: flex;
   gap: 10px;
   margin-top: 6px;
   justify-content: center;

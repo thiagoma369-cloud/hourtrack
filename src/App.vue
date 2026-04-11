@@ -3,19 +3,28 @@ import FormularioServico from './FormularioServico.vue';
 import ResumoFinanceiro from './ResumoFinanceiro.vue';
 import ListaServicos from './ListaServicos.vue';
 import FiltrosServicos from './FiltrosServicos.vue';
+import Login from './Login.vue';
+import Register from './Register.vue';
+
 
 export default {
   name: "App",
+
   components: {
     FormularioServico,
     ResumoFinanceiro,
     ListaServicos,
-    FiltrosServicos
+    FiltrosServicos,
+    Login,
+    Register
   },
 
   /* DADOS DA APLICAÇÃO */
   data() {
     return {
+
+      //status de login
+      isLogado: false,
 
       // Tipos fixos disponíveis no formulário
       tiposServico: [
@@ -32,7 +41,11 @@ export default {
       filtroData: "",
 
       // Lista principal de serviços registrados
-      servicos: []
+      servicos: [],
+
+      //atualização de cadastro
+      mostrarCadastro: false,
+      usuario: null
     }
   },
 
@@ -144,26 +157,67 @@ export default {
 
   /* MÉTODOS (AÇÕES) */
   methods: {
-     //salvar serviço no banco
+
+    //salvar serviço no banco
     adicionarServico(novoServico) {
+
+      const token = localStorage.getItem("token");
       fetch("http://127.0.0.1:8000/api/servicos", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify(novoServico)
       })
         .then(res => res.json())
         .then(data => {
-          this.servicos.push(data)
+          this.servicos.push({
+            ...data,
+
+            //  CORREÇÃO PRINCIPAL
+            valorHora: Number(data.valor_hora) || 0,
+            horas: Number(data.horas) || 0,
+
+            // segurança
+            despesas: Array.isArray(data.despesas) ? data.despesas : []
+          })
         })
     },
 
     // Remove serviço pelo id
     removerServico(id) {
-      this.servicos = this.servicos.filter(
-        servico => servico.id !== id
-      )
+
+      // 1. pegar token
+      const token = localStorage.getItem("token");
+
+      fetch(`http://127.0.0.1:8000/api/servicos/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      })
+        .then(res => {
+
+          // 2. verifica se deu erro
+          if (!res.ok) {
+            throw new Error("Erro ao deletar serviço");
+          }
+
+          return res.json();
+        })
+        .then(() => {
+
+          // 3. atualiza a tela
+          this.servicos = this.servicos.filter(
+            servico => servico.id !== id
+          )
+
+        })
+        .catch(err => {
+          console.error(err)
+          alert("Erro ao remover serviço")
+        })
     },
 
     // Calcula total líquido de um serviço específico
@@ -184,71 +238,138 @@ export default {
       servico.despesas.push(despesa)
     },
 
-    removerDespesa({ servicoId, index }) {
+    removerDespesa({ servicoId, despesaId }) {
+
       const servico = this.servicos.find(s => s.id === servicoId)
 
       if (servico && servico.despesas) {
-        servico.despesas = servico.despesas.filter((_, i) => i !== index)
+        servico.despesas = servico.despesas.filter(
+          d => d.id !== despesaId
+        )
       }
+    },
+
+    //atualiza o status pra logado
+    handleLogin(data) {
+      console.log("Usuário logado", data)
+
+      this.isLogado = true
+      
+      this.usuario = data.user
+
+      this.carregarServicos()
+    },
+
+    //carrega serviços apos o login
+    carregarServicos() {
+
+      const token = localStorage.getItem("token");
+
+      fetch("http://127.0.0.1:8000/api/servicos", {
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        }
+      })
+        .then(res => res.json())
+        .then(data => {
+
+          this.servicos = data.map(servico => ({
+            ...servico,
+            valorHora: Number(servico.valor_hora),
+            despesas: servico.despesas || []
+          }))
+
+        })
+    },
+
+    logout() {
+
+      // 1. remover token
+      localStorage.removeItem("token");
+
+     // 2. remover usuario
+     localStorage.removeItem("usuario")
+
+      // 3. limpar dados
+      this.isLogado = false
+      this.usuario = null
+      this.servicos = []
     }
   },
 
   /* CICLO DE VIDA */
   mounted() {
-    fetch("http://127.0.0.1:8000/api/servicos")
-      .then(res => res.json())
-      .then(data => {
-        this.servicos = data.map(servico => ({
-          ...servico,
-          valorHora: servico.valor_hora
-        }))
-      })
-  },
 
-  /* OBSERVADORES */
-  watch: {
-    servicos: {
-      handler(novoValor) {
-        localStorage.setItem("servicos", JSON.stringify(novoValor))
-      },
-      deep: true
-    }
+  // 1. pegar token salvo
+  const token = localStorage.getItem("token")
+
+  // 2. pegar usuario salvo
+  const usuarioSalvo = localStorage.getItem("usuario")
+
+  // 3. se existir token → usuário já está logado
+  if (token && usuarioSalvo) {
+
+    // ativa login
+    this.isLogado = true
+
+    // transforma string em objeto
+    this.usuario = JSON.parse(usuarioSalvo)
+
+    // carrega dados do sistema
+    this.carregarServicos()
   }
+}
 }
 </script>
 
 
 <template>
 
-  <!-- CONTAINER PRINCIPAL 
-  (Estrutura geral da aplicação) -->
-  <div class="container">
+  <div> <!-- ELEMENTO RAIZ ÚNICO -->
 
-    <!-- TÍTULO DA APLICAÇÃO -->
-    <h1>Relatório de Serviços</h1>
+    <!-- LOGIN -->
+    <Login v-if="!isLogado && !mostrarCadastro" @login-sucesso="handleLogin" @ir-cadastro="mostrarCadastro = true" />
 
+    <!-- CADASTRO -->
+    <Register v-if="!isLogado && mostrarCadastro" 
+    @cadastro-sucesso="mostrarCadastro = false"
+      @voltar-login="mostrarCadastro = false" />
 
-    <FormularioServico :tiposServico="tiposServico" @adicionar-servico="adicionarServico" />
+    <!-- APP -->
+    <div v-if="isLogado" class="container">
 
-    <hr /> <br>
+      <div class="topo">
+        <button class="logout" @click="logout">
+          Sair
+        </button>
+      </div>
 
+      <p class="saudacao">
+        Olá, <span class="nome-usuario">{{ usuario?.name }}</span>
+      </p>
 
-    <ResumoFinanceiro :mediaValorHora="mediaValorHora" 
-      :totalBrutoGeral="totalBrutoGeral" 
-      :totalLiquidoGeral="totalLiquidoGeral" 
-      :totalDespesasMes="totalDespesasMes"
-      :calcularTotal="calcularTotal" />
+      <h1>Relatório de Serviços</h1>
 
+      <FormularioServico :tiposServico="tiposServico" @adicionar-servico="adicionarServico" />
 
-    <FiltrosServicos :filtroTipo="filtroTipo" :filtroContratante="filtroContratante" :filtroMaquina="filtroMaquina"
-      :filtroData="filtroData" :tiposUnicos="tiposUnicos" :maquinasUnicas="maquinasUnicas"
-      @atualizar-tipo="filtroTipo = $event" @atualizar-contratante="filtroContratante = $event"
-      @atualizar-maquina="filtroMaquina = $event" @atualizar-data="filtroData = $event" />
+      <hr /> <br>
 
-    <ListaServicos :servicos="servicosFiltrados" :calcularTotal="calcularTotal" @remover-servico="removerServico"
-      @adicionar-despesa="adicionarDespesa" @remover-despesa="removerDespesa" />
+      <ResumoFinanceiro :mediaValorHora="mediaValorHora" :totalBrutoGeral="totalBrutoGeral"
+        :totalLiquidoGeral="totalLiquidoGeral" :totalDespesasMes="totalDespesasMes" :calcularTotal="calcularTotal" />
+
+      <FiltrosServicos :filtroTipo="filtroTipo" :filtroContratante="filtroContratante" :filtroMaquina="filtroMaquina"
+        :filtroData="filtroData" :tiposUnicos="tiposUnicos" :maquinasUnicas="maquinasUnicas"
+        @atualizar-tipo="filtroTipo = $event" @atualizar-contratante="filtroContratante = $event"
+        @atualizar-maquina="filtroMaquina = $event" @atualizar-data="filtroData = $event" />
+
+      <ListaServicos :servicos="servicosFiltrados" :calcularTotal="calcularTotal" @remover-servico="removerServico"
+        @adicionar-despesa="adicionarDespesa" @remover-despesa="removerDespesa" />
+
+    </div>
 
   </div>
+
 </template>
 
 <style>
@@ -493,5 +614,32 @@ h2 {
   gap: 10px;
   margin-top: 6px;
   justify-content: center;
+
+}
+
+.topo {
+  display: flex;
+  justify-content: flex-end;
+  margin: 10px;
+}
+
+.logout {
+  background: #ef4444;
+  color: white;
+}
+
+.logout:hover {
+  background: #b71c1c;
+}
+
+.saudacao {
+  font-size: 18px;
+  margin-bottom: 10px;
+  color: #1c1c1c;
+}
+
+.nome-usuario {
+  color: #2e7d32; /* mesmo verde do sistema */
+  font-weight: bold;
 }
 </style>

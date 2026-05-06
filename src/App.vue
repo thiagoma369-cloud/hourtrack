@@ -5,6 +5,7 @@ import ListaServicos from './ListaServicos.vue';
 import FiltrosServicos from './FiltrosServicos.vue';
 import Login from './Login.vue';
 import Register from './Register.vue';
+import API_URL from './sevices/api';
 
 
 export default {
@@ -16,7 +17,8 @@ export default {
     ListaServicos,
     FiltrosServicos,
     Login,
-    Register
+    Register,
+    API_URL
   },
 
   /* DADOS DA APLICAÇÃO */
@@ -265,7 +267,7 @@ export default {
 
       const token = localStorage.getItem("token");
 
-      fetch("http://127.0.0.1:8000/api/servicos", {
+      fetch(`${API_URL}/servicos`, {
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`

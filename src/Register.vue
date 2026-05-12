@@ -1,4 +1,6 @@
 <script>
+import API_URL from './services/api';
+
 export default {
   name: "Register",
 
@@ -13,7 +15,7 @@ export default {
   methods: {
     fazerCadastro() {
 
-      fetch("http://127.0.0.1:8000/api/register", {
+      fetch(`${API_URL}/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

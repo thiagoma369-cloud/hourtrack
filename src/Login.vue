@@ -1,4 +1,6 @@
 <script>
+import API_URL from './services/api';
+
 export default {
   name: "Login",
 
@@ -11,7 +13,7 @@ export default {
 
   methods: {
     fazerLogin() {
-      fetch("http://127.0.0.1:8000/api/login", {
+      fetch(`${API_URL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

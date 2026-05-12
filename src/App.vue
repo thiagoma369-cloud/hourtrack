@@ -5,7 +5,7 @@ import ListaServicos from './ListaServicos.vue';
 import FiltrosServicos from './FiltrosServicos.vue';
 import Login from './Login.vue';
 import Register from './Register.vue';
-import API_URL from './sevices/api';
+import API_URL from './services/api';
 
 
 export default {
@@ -17,8 +17,7 @@ export default {
     ListaServicos,
     FiltrosServicos,
     Login,
-    Register,
-    API_URL
+    Register
   },
 
   /* DADOS DA APLICAÇÃO */
@@ -164,7 +163,7 @@ export default {
     adicionarServico(novoServico) {
 
       const token = localStorage.getItem("token");
-      fetch("http://127.0.0.1:8000/api/servicos", {
+      fetch(`${API_URL}/servicos`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -193,7 +192,7 @@ export default {
       // 1. pegar token
       const token = localStorage.getItem("token");
 
-      fetch(`http://127.0.0.1:8000/api/servicos/${id}`, {
+      fetch(`${API_URL}/servicos/${id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`

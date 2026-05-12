@@ -1,5 +1,6 @@
 <script>
 import DespesasServico from './Despesas.vue';
+import API_URL from './services/api';
 
 export default {
   name: "ListaServicos",
@@ -43,7 +44,7 @@ export default {
 
       const token = localStorage.getItem("token");
 
-      fetch("http://127.0.0.1:8000/api/despesas", {
+      fetch(`${API_URL}/despesas`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -77,7 +78,7 @@ export default {
 
       const token = localStorage.getItem("token");
 
-      fetch(`http://127.0.0.1:8000/api/despesas/${despesa.id}`, {
+      fetch(`${API_URL}/despesas/${despesa.id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`

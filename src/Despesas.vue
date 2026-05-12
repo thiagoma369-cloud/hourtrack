@@ -19,18 +19,18 @@ export default {
 
             const novaDespesa = {
                 descricao: this.descricao,
-                valor: Number(this.valor)
+                valor: this.valor
             }
 
-            console.log("emitindo despesa", novaDespesa)
             this.$emit("adicionar-despesa", novaDespesa)
+
             this.descricao = ""
             this.valor = null
         },
 
-        removerDespesa(index) {
-            console.log("removida com sucesso", index)
-            this.$emit("remover-despesa", index)
+        removerDespesa(despesa) {
+            console.log("removida com sucesso", despesa)
+            this.$emit("remover-despesa", despesa)
         }
     }
 }
@@ -45,7 +45,8 @@ export default {
                 {{ despesa.descricao }} - R$ {{ despesa.valor }}
             </p>
 
-            <button class="remover-despesa" @click="removerDespesa(index)">
+            <button class="remover-despesa"
+             @click="removerDespesa(despesa)">
                 Remover
             </button>
         </div>

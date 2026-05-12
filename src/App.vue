@@ -3,36 +3,50 @@ import FormularioServico from './FormularioServico.vue';
 import ResumoFinanceiro from './ResumoFinanceiro.vue';
 import ListaServicos from './ListaServicos.vue';
 import FiltrosServicos from './FiltrosServicos.vue';
+import Login from './Login.vue';
+import Register from './Register.vue';
+import API_URL from './services/api';
+
 
 export default {
   name: "App",
+
   components: {
     FormularioServico,
     ResumoFinanceiro,
     ListaServicos,
-    FiltrosServicos
+    FiltrosServicos,
+    Login,
+    Register
   },
 
   /* DADOS DA APLICAÇÃO */
   data() {
     return {
 
+      //status de login
+      isLogado: false,
+
       // Tipos fixos disponíveis no formulário
       tiposServico: [
         { nome: "Arado" },
         { nome: "Roço" },
         { nome: "Plantio" },
-        { nome: "Derrubada"},
+        { nome: "Derrubada" }
       ],
 
       // Estados de filtro
       filtroTipo: "",
       filtroContratante: "",
       filtroMaquina: "",
-      filtroData:"",
+      filtroData: "",
 
       // Lista principal de serviços registrados
-      servicos: []
+      servicos: [],
+
+      //atualização de cadastro
+      mostrarCadastro: false,
+      usuario: null
     }
   },
 
@@ -55,23 +69,23 @@ export default {
         return total + totalDespesasServico
       }, 0)
     },
-    
+
     // Soma total líquido geral
     totalLiquidoGeral() {
       return this.servicos.reduce((total, servico) => {
         return total + this.calcularTotal(servico)
       }, 0)
     },
-    
+
     // Retorna apenas tipos que já foram usados, para nao repetir
     tiposUnicos() {
       const tipos = this.servicos.map(servico => servico.tipo)
       return [...new Set(tipos)]
     },
-    
+
     // Retorna maquinas no select do filtro sempre que uma nova é adc
     maquinasUnicas() {
-     return [...new Set(this.servicos.map(s => s.maquina))]
+      return [...new Set(this.servicos.map(s => s.maquina))]
     },
 
     // Lista filtrada + ordenada
@@ -81,51 +95,51 @@ export default {
       // Filtro por tipo
       if (this.filtroTipo) {
         lista = lista.filter(servico =>
-        servico.tipo === this.filtroTipo
+          servico.tipo === this.filtroTipo
         )
       }
 
       // Filtro por contratante
       if (this.filtroContratante) {
         lista = lista.filter(servico =>
-        servico.contratante
-        .toLowerCase()
-        .includes(this.filtroContratante.toLowerCase())
+          servico.contratante
+            .toLowerCase()
+            .includes(this.filtroContratante.toLowerCase())
+        )
+      }
+
+      // Filtro por Máquina
+      if (this.filtroMaquina) {
+        lista = lista.filter(servico =>
+          servico.maquina === this.filtroMaquina
+        )
+      }
+
+      // Filtro por data 
+      if (this.filtroData) {
+        lista = lista.filter(servico =>
+          servico.data === this.filtroData
+        )
+      }
+      // Ordenação por data (mais recente primeiro)
+      return lista.sort((a, b) =>
+        new Date(b.data) - new Date(a.data)
       )
-    }
-    
-    // Filtro por Máquina
-    if(this.filtroMaquina) {
-      lista = lista.filter(servico => 
-      servico.maquina === this.filtroMaquina
-    )
-  }
-  
-  // Filtro por data 
-  if(this.filtroData) {
-    lista = lista.filter(servico => 
-    servico.data === this.filtroData
-  )
-}
-   // Ordenação por data (mais recente primeiro)
-    return lista.sort((a, b) =>
-    new Date(b.data) - new Date(a.data)
-   )
-      
+
     },
-    
+
     // Média geral de valor por hora
     mediaValorHora() {
       if (!this.servicos.length) return 0
-      
+
       const totalHoras = this.servicos.reduce((total, servico) => {
         return total + servico.horas
       }, 0)
-      
+
       const totalBruto = this.totalBrutoGeral
 
       return totalHoras
-      ? Number((totalBruto / totalHoras).toFixed(2))
+        ? Number((totalBruto / totalHoras).toFixed(2))
         : 0
     }
 
@@ -145,15 +159,66 @@ export default {
   /* MÉTODOS (AÇÕES) */
   methods: {
 
+    //salvar serviço no banco
     adicionarServico(novoServico) {
-      this.servicos.push(novoServico)
+
+      const token = localStorage.getItem("token");
+      fetch(`${API_URL}/servicos`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(novoServico)
+      })
+        .then(res => res.json())
+        .then(data => {
+          this.servicos.push({
+            ...data,
+
+            //  CORREÇÃO PRINCIPAL
+            valorHora: Number(data.valor_hora) || 0,
+            horas: Number(data.horas) || 0,
+
+            // segurança
+            despesas: Array.isArray(data.despesas) ? data.despesas : []
+          })
+        })
     },
 
     // Remove serviço pelo id
     removerServico(id) {
-      this.servicos = this.servicos.filter(
-        servico => servico.id !== id
-      )
+
+      // 1. pegar token
+      const token = localStorage.getItem("token");
+
+      fetch(`${API_URL}/servicos/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      })
+        .then(res => {
+
+          // 2. verifica se deu erro
+          if (!res.ok) {
+            throw new Error("Erro ao deletar serviço");
+          }
+
+          return res.json();
+        })
+        .then(() => {
+
+          // 3. atualiza a tela
+          this.servicos = this.servicos.filter(
+            servico => servico.id !== id
+          )
+
+        })
+        .catch(err => {
+          console.error(err)
+          alert("Erro ao remover serviço")
+        })
     },
 
     // Calcula total líquido de um serviço específico
@@ -174,81 +239,138 @@ export default {
       servico.despesas.push(despesa)
     },
 
-    removerDespesa({ servicoId, index }) {
+    removerDespesa({ servicoId, despesaId }) {
+
       const servico = this.servicos.find(s => s.id === servicoId)
 
       if (servico && servico.despesas) {
-        servico.despesas = servico.despesas.filter((_, i) => i !== index)
+        servico.despesas = servico.despesas.filter(
+          d => d.id !== despesaId
+        )
       }
+    },
+
+    //atualiza o status pra logado
+    handleLogin(data) {
+      console.log("Usuário logado", data)
+
+      this.isLogado = true
+      
+      this.usuario = data.user
+
+      this.carregarServicos()
+    },
+
+    //carrega serviços apos o login
+    carregarServicos() {
+
+      const token = localStorage.getItem("token");
+
+      fetch(`${API_URL}/servicos`, {
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        }
+      })
+        .then(res => res.json())
+        .then(data => {
+
+          this.servicos = data.map(servico => ({
+            ...servico,
+            valorHora: Number(servico.valor_hora),
+            despesas: servico.despesas || []
+          }))
+
+        })
+    },
+
+    logout() {
+
+      // 1. remover token
+      localStorage.removeItem("token");
+
+     // 2. remover usuario
+     localStorage.removeItem("usuario")
+
+      // 3. limpar dados
+      this.isLogado = false
+      this.usuario = null
+      this.servicos = []
     }
   },
 
   /* CICLO DE VIDA */
   mounted() {
-    const dadosSalvos = localStorage.getItem("servicos")
 
-    if (dadosSalvos) {
-      this.servicos = JSON.parse(dadosSalvos)
-    }
-  },
+  // 1. pegar token salvo
+  const token = localStorage.getItem("token")
 
-  /* OBSERVADORES */
-  watch: {
-    servicos: {
-      handler(novoValor) {
-        localStorage.setItem("servicos", JSON.stringify(novoValor))
-      },
-      deep: true
-    }
+  // 2. pegar usuario salvo
+  const usuarioSalvo = localStorage.getItem("usuario")
+
+  // 3. se existir token → usuário já está logado
+  if (token && usuarioSalvo) {
+
+    // ativa login
+    this.isLogado = true
+
+    // transforma string em objeto
+    this.usuario = JSON.parse(usuarioSalvo)
+
+    // carrega dados do sistema
+    this.carregarServicos()
   }
+}
 }
 </script>
 
 
 <template>
 
-  <!-- CONTAINER PRINCIPAL 
-  (Estrutura geral da aplicação) -->
-  <div class="container">
+  <div> <!-- ELEMENTO RAIZ ÚNICO -->
 
-    <!-- TÍTULO DA APLICAÇÃO -->
-    <h1>Relatório de Serviços</h1>
+    <!-- LOGIN -->
+    <Login v-if="!isLogado && !mostrarCadastro" @login-sucesso="handleLogin" @ir-cadastro="mostrarCadastro = true" />
 
+    <!-- CADASTRO -->
+    <Register v-if="!isLogado && mostrarCadastro" 
+    @cadastro-sucesso="mostrarCadastro = false"
+      @voltar-login="mostrarCadastro = false" />
 
-    <FormularioServico :tiposServico="tiposServico" @adicionar-servico="adicionarServico" />
+    <!-- APP -->
+    <div v-if="isLogado" class="container">
 
-    <hr /> <br>
+      <div class="topo">
+        <button class="logout" @click="logout">
+          Sair
+        </button>
+      </div>
 
+      <p class="saudacao">
+        Olá, <span class="nome-usuario">{{ usuario?.name }}</span>
+      </p>
 
-    <ResumoFinanceiro :mediaValorHora="mediaValorHora" :servicoMaisLucrativo="servicoMaisLucrativo"
-      :totalBrutoGeral="totalBrutoGeral" :totalLiquidoGeral="totalLiquidoGeral" :totalDespesasMes="totalDespesasMes"
-      :calcularTotal="calcularTotal" />
+      <h1>Relatório de Serviços</h1>
 
+      <FormularioServico :tiposServico="tiposServico" @adicionar-servico="adicionarServico" />
 
-   <FiltrosServicos
-  :filtroTipo="filtroTipo"
-  :filtroContratante="filtroContratante"
-  :filtroMaquina="filtroMaquina"
-  :filtroData="filtroData"
+      <hr /> <br>
 
-  :tiposUnicos="tiposUnicos"
-  :maquinasUnicas="maquinasUnicas"
+      <ResumoFinanceiro :mediaValorHora="mediaValorHora" :totalBrutoGeral="totalBrutoGeral"
+        :totalLiquidoGeral="totalLiquidoGeral" :totalDespesasMes="totalDespesasMes" :calcularTotal="calcularTotal" />
 
-  @atualizar-tipo="filtroTipo = $event"
-  @atualizar-contratante="filtroContratante = $event"
-  @atualizar-maquina="filtroMaquina = $event"
-  @atualizar-data="filtroData = $event"
-/>
+      <FiltrosServicos :filtroTipo="filtroTipo" :filtroContratante="filtroContratante" :filtroMaquina="filtroMaquina"
+        :filtroData="filtroData" :tiposUnicos="tiposUnicos" :maquinasUnicas="maquinasUnicas"
+        @atualizar-tipo="filtroTipo = $event" @atualizar-contratante="filtroContratante = $event"
+        @atualizar-maquina="filtroMaquina = $event" @atualizar-data="filtroData = $event" />
 
-    <ListaServicos
-  :servicos="servicosFiltrados"
-  :calcularTotal="calcularTotal"
-  @remover-servico="removerServico"
-  @adicionar-despesa="adicionarDespesa"
-  @remover-despesa="removerDespesa"
-/>
+      <ListaServicos :servicos="servicosFiltrados" :calcularTotal="calcularTotal" @remover-servico="removerServico"
+        @adicionar-despesa="adicionarDespesa" @remover-despesa="removerDespesa" />
+
+    </div>
 
   </div>
+
 </template>
 
 <style>
@@ -321,30 +443,30 @@ select {
 /* botão principal */
 /* estilo base de todos botões */
 
-button{
-padding:10px 14px;
-font-size:14px;
-border:none;
-border-radius:6px;
-cursor:pointer;
-transition:0.2s;
+button {
+  padding: 10px 14px;
+  font-size: 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.2s;
 }
 
 /* botao principal */
 .adicionar {
-  background:#2e7d32;
-  color:white;
+  background: #2e7d32;
+  color: white;
 }
 
 /* efeito hover do botão */
 .adicionar:hover {
-  background:#1b5e20;
+  background: #1b5e20;
 }
 
 /* restante dos botoes */
 
-.toggle-despesas{
- background: #e5e7eb;
+.toggle-despesas {
+  background: #e5e7eb;
   border: none;
   padding: 6px 10px;
   border-radius: 6px;
@@ -352,8 +474,8 @@ transition:0.2s;
   color: #333
 }
 
-.toggle-despesas:hover{
-background:#d5d5d5;
+.toggle-despesas:hover {
+  background: #d5d5d5;
 }
 
 .remover {
@@ -375,7 +497,7 @@ background:#d5d5d5;
 }
 
 .remover:hover {
-  background:#b71c1c;
+  background: #b71c1c;
 }
 
 
@@ -400,71 +522,73 @@ h2 {
   background-color: #f1f8f4;
 }
 
-.resumo strong{
-  font-size:16px;
-  color:#1b5e20;
+.resumo strong {
+  font-size: 16px;
+  color: #1b5e20;
 }
+
 /* card de serviço (estrutura + visual juntos) */
 .card {
   padding: 16px;
   border: 1px solid #2e7d32;
   border-radius: 8px;
   background-color: white;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-  margin-bottom: 12px; background: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  margin-bottom: 12px;
+  background: white;
   border-radius: 10px;
   padding: 16px;
 
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.despesas{
-  margin-top:10px;
-  padding:10px;
-  background:#fafafa;
-  border-radius:6px;
+.despesas {
+  margin-top: 10px;
+  padding: 10px;
+  background: #fafafa;
+  border-radius: 6px;
 }
 
-@media (max-width:700px){
+@media (max-width:700px) {
 
-.formulario{
-grid-template-columns:1fr;
+  .formulario {
+    grid-template-columns: 1fr;
+  }
+
+  .formulario input[type="date"],
+  .formulario button,
+  .resultado {
+    grid-column: span 1;
+  }
+
+  .filtros {
+    flex-direction: column;
+  }
+
+  .lista {
+    grid-template-columns: 1fr;
+  }
+
 }
 
-.formulario input[type="date"],
-.formulario button,
-.resultado{
-grid-column:span 1;
-}
+.linha-servico-topo {
 
-.filtros{
-flex-direction:column;
-}
-
-.lista {
-  grid-template-columns: 1fr;
-}
-
-}
-
-.linha-servico-topo{
-
- font-size: 18px;
+  font-size: 18px;
   color: #1f2937;
 
 }
 
-.linha-servico-info{
+.linha-servico-info {
 
-font-size:16px;
-color:#555;
-margin-bottom:4px;
-display: flex;
-justify-content: space-around;
+  font-size: 16px;
+  color: #555;
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-around;
 }
 
 
@@ -485,11 +609,38 @@ justify-content: space-around;
   color: #6b7280;
 }
 
-.linha-servico-acoes{
+.linha-servico-acoes {
 
- display: flex;
+  display: flex;
   gap: 10px;
   margin-top: 6px;
   justify-content: center;
+
+}
+
+.topo {
+  display: flex;
+  justify-content: flex-end;
+  margin: 10px;
+}
+
+.logout {
+  background: #ef4444;
+  color: white;
+}
+
+.logout:hover {
+  background: #b71c1c;
+}
+
+.saudacao {
+  font-size: 18px;
+  margin-bottom: 10px;
+  color: #1c1c1c;
+}
+
+.nome-usuario {
+  color: #2e7d32; /* mesmo verde do sistema */
+  font-weight: bold;
 }
 </style>
